@@ -1,25 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { stockPickApi } from '../services/api';
+import React, { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 export const Home = () => {
-  const [recentPicks, setRecentPicks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
+  // Redirect logged-in users to dashboard
   useEffect(() => {
-    const fetchRecentPicks = async () => {
-      try {
-        const picks = await stockPickApi.getRecentStockPicks(5);
-        setRecentPicks(picks);
-      } catch (error) {
-        console.error('Error fetching recent picks:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRecentPicks();
-  }, []);
+    if (user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -90,59 +82,29 @@ export const Home = () => {
         </div>
       </section>
 
-      {/* Recent Picks Preview */}
+      {/* Call to Action Section */}
       <section className="py-16 bg-white rounded-lg shadow-sm">
-        <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
-          Recent Stock Picks
-        </h2>
-        {loading ? (
-          <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full table-auto">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4">Symbol</th>
-                  <th className="text-left py-3 px-4">Company</th>
-                  <th className="text-left py-3 px-4">Type</th>
-                  <th className="text-left py-3 px-4">Entry Price</th>
-                  <th className="text-left py-3 px-4">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentPicks.slice(0, 5).map((pick) => (
-                  <tr key={pick.id} className="border-b hover:bg-gray-50">
-                    <td className="py-3 px-4 font-semibold">{pick.symbol}</td>
-                    <td className="py-3 px-4">{pick.companyName}</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded text-sm ${
-                        pick.pickType === 'BUY' ? 'bg-green-100 text-green-800' :
-                        pick.pickType === 'SELL' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {pick.pickType}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">${pick.entryPrice.toFixed(2)}</td>
-                    <td className="py-3 px-4">{new Date(pick.pickDate).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <div className="text-center mt-8">
-          <p className="text-gray-600 mb-4">
-            Subscribe to see all picks and detailed analysis
+        <div className="text-center">
+          <h2 className="text-3xl font-bold text-gray-900 mb-6">
+            Ready to Start Your Investment Journey?
+          </h2>
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            Join thousands of successful investors who rely on our expert stock picks and market analysis.
           </p>
-          <Link
-            to="/plans"
-            className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-          >
-            Choose Your Plan
-          </Link>
+          <div className="space-x-4">
+            <Link
+              to="/register"
+              className="bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 rounded-lg text-lg font-semibold transition-colors"
+            >
+              Start Free Trial
+            </Link>
+            <Link
+              to="/plans"
+              className="border border-primary-600 text-primary-600 hover:bg-primary-50 px-8 py-4 rounded-lg text-lg font-semibold transition-colors"
+            >
+              View Plans
+            </Link>
+          </div>
         </div>
       </section>
     </div>

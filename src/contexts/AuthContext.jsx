@@ -45,7 +45,8 @@ export const AuthProvider = ({ children }) => {
     if (!token) return;
     
     try {
-      const response = await fetch('http://localhost:8080/api/subscription/current', {
+      // First try to get current subscription details
+      const response = await fetch('http://localhost:8080/api/subscriptions/current', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -54,11 +55,37 @@ export const AuthProvider = ({ children }) => {
       
       if (response.ok) {
         const subscriptionData = await response.json();
-        setSubscription(subscriptionData);
-        localStorage.setItem('subscription', JSON.stringify(subscriptionData));
+        // Check if response is null or a string indicating no subscription
+        if (!subscriptionData || (typeof subscriptionData === 'string' && subscriptionData.includes('No active subscription'))) {
+          setSubscription(null);
+          localStorage.removeItem('subscription');
+        } else {
+          setSubscription(subscriptionData);
+          localStorage.setItem('subscription', JSON.stringify(subscriptionData));
+        }
       } else {
-        setSubscription(null);
-        localStorage.removeItem('subscription');
+        // Fallback: check subscription status
+        const statusResponse = await fetch('http://localhost:8080/api/subscriptions/status', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (statusResponse.ok) {
+          const hasActive = await statusResponse.json();
+          if (hasActive) {
+            // User has active subscription but details failed to load
+            setSubscription({ status: 'ACTIVE' });
+            localStorage.setItem('subscription', JSON.stringify({ status: 'ACTIVE' }));
+          } else {
+            setSubscription(null);
+            localStorage.removeItem('subscription');
+          }
+        } else {
+          setSubscription(null);
+          localStorage.removeItem('subscription');
+        }
       }
     } catch (error) {
       console.error('Error fetching subscription:', error);
