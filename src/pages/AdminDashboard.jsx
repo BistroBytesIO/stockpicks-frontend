@@ -201,6 +201,42 @@ export const AdminDashboard = () => {
     }
   };
 
+  const handleFileDownload = async (fileId, filename) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`http://localhost:8080/api/admin/files/${fileId}/download`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+
+      if (response.ok) {
+        // Get the file blob
+        const blob = await response.blob();
+        
+        // Create a temporary URL for the blob
+        const url = window.URL.createObjectURL(blob);
+        
+        // Create a temporary anchor element to trigger download
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Failed to download file');
+      }
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert('Error downloading file');
+    }
+  };
+
   const handleDeleteFile = async (fileId) => {
     if (!confirm('Are you sure you want to delete this file?')) return;
 
@@ -575,19 +611,12 @@ export const AdminDashboard = () => {
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex space-x-2">
-                              <a
-                                href={`http://localhost:8080/api/admin/files/${file.id}/download`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <button
+                                onClick={() => handleFileDownload(file.id, file.originalFilename)}
                                 className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  const token = localStorage.getItem('adminToken');
-                                  window.open(`http://localhost:8080/api/admin/files/${file.id}/download?token=${token}`, '_blank');
-                                }}
                               >
                                 Download
-                              </a>
+                              </button>
                               <button
                                 onClick={() => handleDeleteFile(file.id)}
                                 className="text-red-600 hover:text-red-800 font-medium text-sm"
