@@ -101,7 +101,7 @@ export const stockPickApi = {
     return response.data;
   },
 
-  getChartData: async (symbol, period = '1M') => {
+  getChartData: async (symbol, period = '1mo') => {
     const response = await api.get(`/stock-picks/${symbol}/chart-data?period=${period}`);
     return response.data;
   },
@@ -111,7 +111,7 @@ export const stockPickApi = {
     return response.data;
   },
 
-  getBatchChartData: async (symbols, period = '1M') => {
+  getBatchChartData: async (symbols, period = '1mo') => {
     const symbolsParam = Array.isArray(symbols) ? symbols.join(',') : symbols;
     const response = await api.get(`/stock-picks/charts/batch?symbols=${symbolsParam}&period=${period}`);
     return response.data;

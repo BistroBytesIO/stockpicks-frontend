@@ -17,7 +17,7 @@ const StockChart = ({ stockPick }) => {
   const [chartData, setChartData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [period, setPeriod] = useState('1M');
+  const [period, setPeriod] = useState('1mo');
 
   useEffect(() => {
     fetchChartData();
@@ -163,17 +163,23 @@ const StockChart = ({ stockPick }) => {
           <p className="text-sm text-gray-600">{stockPick.companyName}</p>
         </div>
         <div className="flex space-x-2">
-          {['1D', '1W', '1M', '3M'].map((p) => (
+          {[
+            { value: '1d', label: '1D' },
+            { value: '5d', label: '5D' },
+            { value: '1mo', label: '1M' },
+            { value: '3mo', label: '3M' },
+            { value: '1y', label: '1Y' }
+          ].map((p) => (
             <button
-              key={p}
-              onClick={() => setPeriod(p)}
+              key={p.value}
+              onClick={() => setPeriod(p.value)}
               className={`px-3 py-1 text-sm rounded ${
-                period === p 
+                period === p.value 
                   ? 'bg-blue-600 text-white' 
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {p}
+              {p.label}
             </button>
           ))}
         </div>
