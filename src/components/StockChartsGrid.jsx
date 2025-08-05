@@ -15,7 +15,7 @@ const StockChartsGrid = ({ stockPicks }) => {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Stock Charts</h2>
         <p className="text-sm text-gray-600">
-          Real-time market data powered by Finnhub
+          Real-time market data
         </p>
       </div>
       
