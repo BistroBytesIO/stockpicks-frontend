@@ -6,7 +6,7 @@ import StockChartsGrid from '../components/StockChartsGrid';
 import MarketDashboard from '../components/MarketDashboard';
 
 export const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, hasActiveSubscription } = useAuth();
   const navigate = useNavigate();
   const [stockPicks, setStockPicks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,20 +19,37 @@ export const Dashboard = () => {
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        // Fetch all data in parallel to avoid duplicate calls
-        const [picksData, blogResponse, filesResponse] = await Promise.all([
-          stockPickApi.getStockPicks(),
-          fetch('http://localhost:8080/api/blog/posts'),
-          fetch('http://localhost:8080/api/files', {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-              'Content-Type': 'application/json'
-            }
-          })
-        ]);
+        // Only fetch protected resources if user has active subscription
+        const promises = [
+          fetch('http://localhost:8080/api/blog/posts')
+        ];
+        
+        if (hasActiveSubscription) {
+          promises.push(
+            stockPickApi.getStockPicks(),
+            fetch('http://localhost:8080/api/files', {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+              }
+            })
+          );
+        }
+        
+        const responses = await Promise.all(promises);
+        const blogResponse = responses[0];
+        let picksData = [];
+        let filesResponse = null;
+        
+        if (hasActiveSubscription) {
+          picksData = responses[1];
+          filesResponse = responses[2];
+        }
 
-        // Handle stock picks
-        setStockPicks(picksData);
+        // Handle stock picks (only if subscription active)
+        if (hasActiveSubscription) {
+          setStockPicks(picksData);
+        }
 
         // Handle blog posts
         if (blogResponse.ok) {
@@ -42,10 +59,12 @@ export const Dashboard = () => {
         setBlogLoading(false);
 
 
-        // Handle files data
-        if (filesResponse.ok) {
-          const filesData = await filesResponse.json();
-          setFiles(filesData);
+        // Handle files data (only if subscription active)
+        if (hasActiveSubscription && filesResponse) {
+          if (filesResponse.ok) {
+            const filesData = await filesResponse.json();
+            setFiles(filesData);
+          }
         }
         setFilesLoading(false);
 
@@ -59,9 +78,11 @@ export const Dashboard = () => {
     };
 
     fetchAllData();
-  }, []);
+  }, [hasActiveSubscription]);
 
   const handleSync = async () => {
+    if (!hasActiveSubscription) return;
+    
     setSyncing(true);
     try {
       const syncResponse = await stockPickApi.syncFromGoogleSheets();
@@ -216,94 +237,116 @@ export const Dashboard = () => {
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-gray-900">Latest Stock Picks</h2>
-                    <button
-                      onClick={handleSync}
-                      disabled={syncing}
-                      className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-sm ${
-                        syncing
-                          ? 'bg-gray-400 cursor-not-allowed text-white'
-                          : 'bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white hover:shadow-md transform hover:-translate-y-0.5'
-                      }`}
-                    >
-                      {syncing ? (
-                        <div className="flex items-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Syncing...
-                        </div>
-                      ) : (
-                        'Sync Latest Picks'
-                      )}
-                    </button>
+                    {hasActiveSubscription && (
+                      <button
+                        onClick={handleSync}
+                        disabled={syncing}
+                        className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-sm ${
+                          syncing
+                            ? 'bg-gray-400 cursor-not-allowed text-white'
+                            : 'bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white hover:shadow-md transform hover:-translate-y-0.5'
+                        }`}
+                      >
+                        {syncing ? (
+                          <div className="flex items-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Syncing...
+                          </div>
+                        ) : (
+                          'Sync Latest Picks'
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                      <tr>
-                        <th className="text-left py-4 px-6 font-bold text-gray-900">Symbol</th>
-                        <th className="text-left py-4 px-6 font-bold text-gray-900">Company</th>
-                        <th className="text-left py-4 px-6 font-bold text-gray-900">Type</th>
-                        <th className="text-left py-4 px-6 font-bold text-gray-900">Entry Price</th>
-                        <th className="text-left py-4 px-6 font-bold text-gray-900">Current Price</th>
-                        <th className="text-left py-4 px-6 font-bold text-gray-900">Performance</th>
-                        <th className="text-left py-4 px-6 font-bold text-gray-900">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {stockPicks.length > 0 ? (
-                        stockPicks.map((pick) => {
-                          const performance = calculatePerformance(pick);
-                          return (
-                            <tr key={pick.id} className="hover:bg-gray-50 transition-colors">
-                              <td className="py-4 px-6 font-bold text-gray-900">{pick.symbol}</td>
-                              <td className="py-4 px-6 text-gray-700">{pick.companyName}</td>
-                              <td className="py-4 px-6">
-                                <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                                  pick.pickType === 'BUY' ? 'bg-green-100 text-green-800' :
-                                  pick.pickType === 'SELL' ? 'bg-red-100 text-red-800' :
-                                  'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                  {pick.pickType}
-                                </span>
-                              </td>
-                              <td className="py-4 px-6 text-gray-700 font-medium">${pick.entryPrice.toFixed(2)}</td>
-                              <td className="py-4 px-6 text-gray-700 font-medium">
-                                {pick.currentPrice ? `$${pick.currentPrice.toFixed(2)}` : '-'}
-                              </td>
-                              <td className="py-4 px-6">
-                                {performance ? (
-                                  <div className={`font-bold ${
-                                    parseFloat(performance.change) >= 0 ? 'text-green-600' : 'text-red-600'
-                                  }`}>
-                                    {parseFloat(performance.change) >= 0 ? '+' : ''}${performance.change} ({performance.percentage}%)
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-500">-</span>
-                                )}
-                              </td>
-                              <td className="py-4 px-6 text-gray-700">
-                                {new Date(pick.pickDate).toLocaleDateString()}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      ) : (
+                {hasActiveSubscription ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                         <tr>
-                          <td colSpan="7" className="py-12 text-center text-gray-500">
-                            <div className="flex flex-col items-center">
-                              <svg className="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                              </svg>
-                              <p className="text-lg font-medium">No stock picks available yet</p>
-                              <p className="text-sm">Check back soon for the latest recommendations!</p>
-                            </div>
-                          </td>
+                          <th className="text-left py-4 px-6 font-bold text-gray-900">Symbol</th>
+                          <th className="text-left py-4 px-6 font-bold text-gray-900">Company</th>
+                          <th className="text-left py-4 px-6 font-bold text-gray-900">Type</th>
+                          <th className="text-left py-4 px-6 font-bold text-gray-900">Entry Price</th>
+                          <th className="text-left py-4 px-6 font-bold text-gray-900">Current Price</th>
+                          <th className="text-left py-4 px-6 font-bold text-gray-900">Performance</th>
+                          <th className="text-left py-4 px-6 font-bold text-gray-900">Date</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {stockPicks.length > 0 ? (
+                          stockPicks.map((pick) => {
+                            const performance = calculatePerformance(pick);
+                            return (
+                              <tr key={pick.id} className="hover:bg-gray-50 transition-colors">
+                                <td className="py-4 px-6 font-bold text-gray-900">{pick.symbol}</td>
+                                <td className="py-4 px-6 text-gray-700">{pick.companyName}</td>
+                                <td className="py-4 px-6">
+                                  <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                                    pick.pickType === 'BUY' ? 'bg-green-100 text-green-800' :
+                                    pick.pickType === 'SELL' ? 'bg-red-100 text-red-800' :
+                                    'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                    {pick.pickType}
+                                  </span>
+                                </td>
+                                <td className="py-4 px-6 text-gray-700 font-medium">${pick.entryPrice.toFixed(2)}</td>
+                                <td className="py-4 px-6 text-gray-700 font-medium">
+                                  {pick.currentPrice ? `$${pick.currentPrice.toFixed(2)}` : '-'}
+                                </td>
+                                <td className="py-4 px-6">
+                                  {performance ? (
+                                    <div className={`font-bold ${
+                                      parseFloat(performance.change) >= 0 ? 'text-green-600' : 'text-red-600'
+                                    }`}>
+                                      {parseFloat(performance.change) >= 0 ? '+' : ''}${performance.change} ({performance.percentage}%)
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-500">-</span>
+                                  )}
+                                </td>
+                                <td className="py-4 px-6 text-gray-700">
+                                  {new Date(pick.pickDate).toLocaleDateString()}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td colSpan="7" className="py-12 text-center text-gray-500">
+                              <div className="flex flex-col items-center">
+                                <svg className="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                </svg>
+                                <p className="text-lg font-medium">No stock picks available yet</p>
+                                <p className="text-sm">Check back soon for the latest recommendations!</p>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="py-16 text-center">
+                    <div className="flex flex-col items-center">
+                      <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center mb-6">
+                        <svg className="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-3">Unlock Expert Stock Picks</h3>
+                      <p className="text-gray-600 mb-6 max-w-md">Get access to our latest professional stock recommendations and trading signals with real-time performance tracking.</p>
+                      <button
+                        onClick={() => navigate('/plans')}
+                        className="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                      >
+                        Subscribe to Premium Plans
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -366,15 +409,37 @@ export const Dashboard = () => {
           </div>
 
           {/* Stock Charts Section */}
-          {stockPicks.length > 0 && (
-            <div className="mt-12">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Stock Performance Charts</h2>
-                <p className="text-gray-600">Visual analysis of our recommended stock picks</p>
-              </div>
-              <StockChartsGrid stockPicks={stockPicks} />
+          <div className="mt-12">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Stock Performance Charts</h2>
+              <p className="text-gray-600">Visual analysis of our recommended stock picks</p>
             </div>
-          )}
+            {hasActiveSubscription && stockPicks.length > 0 ? (
+              <StockChartsGrid stockPicks={stockPicks} />
+            ) : !hasActiveSubscription ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 py-16">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg className="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-3">Unlock Interactive Stock Charts</h3>
+                  <p className="text-gray-600 mb-6 max-w-md mx-auto">View detailed performance charts and technical analysis for all our recommended stocks with real-time market data.</p>
+                  <button
+                    onClick={() => navigate('/plans')}
+                    className="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                  >
+                    Subscribe to Premium Plans
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+                <p className="text-gray-500">No stock picks available to display charts for.</p>
+              </div>
+            )}
+          </div>
 
           {/* Downloads Section */}
           <div className="mt-12">
@@ -385,46 +450,66 @@ export const Dashboard = () => {
               </div>
               
               <div className="p-6">
-                {filesLoading ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                  </div>
-                ) : files.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {files.map((file) => (
-                      <div key={file.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                        <div className="flex items-start mb-3">
-                          <svg className="w-8 h-8 text-green-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-gray-900 mb-1 truncate">
-                              {file.originalFilename}
-                            </h3>
-                            <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                              {file.description}
-                            </p>
-                            <div className="flex justify-between items-center text-xs text-gray-500">
-                              <span>{formatFileSize(file.fileSize)}</span>
-                              <span>{new Date(file.uploadedAt).toLocaleDateString()}</span>
+                {hasActiveSubscription ? (
+                  filesLoading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                    </div>
+                  ) : files.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {files.map((file) => (
+                        <div key={file.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex items-start mb-3">
+                            <svg className="w-8 h-8 text-green-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-gray-900 mb-1 truncate">
+                                {file.originalFilename}
+                              </h3>
+                              <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                                {file.description}
+                              </p>
+                              <div className="flex justify-between items-center text-xs text-gray-500">
+                                <span>{formatFileSize(file.fileSize)}</span>
+                                <span>{new Date(file.uploadedAt).toLocaleDateString()}</span>
+                              </div>
                             </div>
                           </div>
+                          <button
+                            onClick={() => handleFileDownload(file.id, file.originalFilename)}
+                            className="w-full bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            Download
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleFileDownload(file.id, file.originalFilename)}
-                          className="w-full bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors"
-                        >
-                          Download
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="text-gray-500 text-sm">No downloadable files available yet</p>
+                    </div>
+                  )
                 ) : (
-                  <div className="text-center py-8">
-                    <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <p className="text-gray-500 text-sm">No downloadable files available yet</p>
+                  <div className="py-12 text-center">
+                    <div className="flex flex-col items-center">
+                      <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center mb-6">
+                        <svg className="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-3">Unlock Premium Downloads</h3>
+                      <p className="text-gray-600 mb-6 max-w-md">Access exclusive Excel files, research reports, and trading templates available only to our premium subscribers.</p>
+                      <button
+                        onClick={() => navigate('/plans')}
+                        className="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                      >
+                        Subscribe to Premium Plans
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
