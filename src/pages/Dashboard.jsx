@@ -17,48 +17,42 @@ export const Dashboard = () => {
   const [activeNewsTab, setActiveNewsTab] = useState('topStories');
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchAllData = async () => {
       try {
-        const picksData = await stockPickApi.getStockPicks();
+        // Fetch all data in parallel to avoid duplicate calls
+        const [picksData, blogResponse, newsResponse] = await Promise.all([
+          stockPickApi.getStockPicks(),
+          fetch('http://localhost:8080/api/blog/posts'),
+          fetch('http://localhost:8080/api/news/all-categories')
+        ]);
+
+        // Handle stock picks
         setStockPicks(picksData);
+
+        // Handle blog posts
+        if (blogResponse.ok) {
+          const posts = await blogResponse.json();
+          setBlogPosts(posts.slice(0, 3)); // Show only the latest 3 posts
+        }
+        setBlogLoading(false);
+
+        // Handle news data
+        if (newsResponse.ok) {
+          const news = await newsResponse.json();
+          setNewsData(news);
+        }
+        setNewsLoading(false);
+
       } catch (error) {
-        console.error('Error fetching stock picks:', error);
+        console.error('Error fetching dashboard data:', error);
+        setBlogLoading(false);
+        setNewsLoading(false);
       } finally {
         setLoading(false);
       }
     };
 
-    const fetchBlogPosts = async () => {
-      try {
-        const response = await fetch('http://localhost:8080/api/blog/posts');
-        if (response.ok) {
-          const posts = await response.json();
-          setBlogPosts(posts.slice(0, 3)); // Show only the latest 3 posts
-        }
-      } catch (error) {
-        console.error('Error fetching blog posts:', error);
-      } finally {
-        setBlogLoading(false);
-      }
-    };
-
-    const fetchNewsData = async () => {
-      try {
-        const response = await fetch('http://localhost:8080/api/news/all-categories');
-        if (response.ok) {
-          const news = await response.json();
-          setNewsData(news);
-        }
-      } catch (error) {
-        console.error('Error fetching news data:', error);
-      } finally {
-        setNewsLoading(false);
-      }
-    };
-
-    fetchData();
-    fetchBlogPosts();
-    fetchNewsData();
+    fetchAllData();
   }, []);
 
   const handleSync = async () => {
