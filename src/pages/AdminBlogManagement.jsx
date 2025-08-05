@@ -9,6 +9,8 @@ export const AdminBlogManagement = () => {
   const [showEditor, setShowEditor] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
   const [operationLoading, setOperationLoading] = useState(false);
+  const [selectedPosts, setSelectedPosts] = useState([]);
+  const [bulkAction, setBulkAction] = useState('');
 
   useEffect(() => {
     // Check admin authentication
@@ -159,6 +161,71 @@ export const AdminBlogManagement = () => {
     setEditingPost(null);
   };
 
+  const togglePostSelection = (postId) => {
+    setSelectedPosts(prev => 
+      prev.includes(postId) 
+        ? prev.filter(id => id !== postId)
+        : [...prev, postId]
+    );
+  };
+
+  const selectAllPosts = () => {
+    setSelectedPosts(selectedPosts.length === posts.length ? [] : posts.map(p => p.id));
+  };
+
+  const handleBulkAction = async () => {
+    if (!bulkAction || selectedPosts.length === 0) return;
+
+    const token = localStorage.getItem('adminToken');
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+
+    try {
+      setOperationLoading(true);
+      
+      if (bulkAction === 'publish') {
+        await Promise.all(
+          selectedPosts.map(postId => 
+            fetch(`http://localhost:8080/api/blog/admin/posts/${postId}/publish`, {
+              method: 'POST',
+              headers
+            })
+          )
+        );
+      } else if (bulkAction === 'unpublish') {
+        await Promise.all(
+          selectedPosts.map(postId => 
+            fetch(`http://localhost:8080/api/blog/admin/posts/${postId}/unpublish`, {
+              method: 'POST',  
+              headers
+            })
+          )
+        );
+      } else if (bulkAction === 'delete') {
+        if (window.confirm(`Are you sure you want to delete ${selectedPosts.length} posts? This action cannot be undone.`)) {
+          await Promise.all(
+            selectedPosts.map(postId => 
+              fetch(`http://localhost:8080/api/blog/admin/posts/${postId}`, {
+                method: 'DELETE',
+                headers
+              })
+            )
+          );
+        }
+      }
+
+      await fetchPosts();
+      setSelectedPosts([]);
+      setBulkAction('');
+    } catch (error) {
+      console.error('Error performing bulk action:', error);
+    } finally {
+      setOperationLoading(false);
+    }
+  };
+
   if (showEditor) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white py-8">
@@ -252,6 +319,51 @@ export const AdminBlogManagement = () => {
           </div>
         </div>
 
+        {/* Bulk Actions */}
+        {posts.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+            <div className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedPosts.length === posts.length && posts.length > 0}
+                      onChange={selectAllPosts}
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                    <span className="ml-2 text-sm text-gray-600">
+                      Select All ({selectedPosts.length} selected)
+                    </span>
+                  </label>
+                </div>
+                
+                {selectedPosts.length > 0 && (
+                  <div className="flex items-center space-x-3">
+                    <select
+                      value={bulkAction}
+                      onChange={(e) => setBulkAction(e.target.value)}
+                      className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-primary-500 focus:border-primary-500"
+                    >
+                      <option value="">Select Action</option>
+                      <option value="publish">Publish Selected</option>
+                      <option value="unpublish">Unpublish Selected</option>
+                      <option value="delete">Delete Selected</option>
+                    </select>
+                    <button
+                      onClick={handleBulkAction}
+                      disabled={!bulkAction || operationLoading}
+                      className="bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white px-4 py-1 rounded-md text-sm transition-colors"
+                    >
+                      {operationLoading ? 'Processing...' : 'Apply'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Posts List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
@@ -277,19 +389,26 @@ export const AdminBlogManagement = () => {
               {posts.map((post) => (
                 <div key={post.id} className="p-6 hover:bg-gray-50 transition-colors">
                   <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900 mr-3">
-                          {post.title}
-                        </h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          post.isPublished
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {post.isPublished ? 'Published' : 'Draft'}
-                        </span>
-                      </div>
+                    <div className="flex items-start space-x-4 flex-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedPosts.includes(post.id)}
+                        onChange={() => togglePostSelection(post.id)}
+                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded mt-1"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900 mr-3">
+                            {post.title}
+                          </h3>
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            post.isPublished
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {post.isPublished ? 'Published' : 'Draft'}
+                          </span>
+                        </div>
                       
                       <p className="text-gray-600 mb-2 line-clamp-2">
                         {post.summary || post.content?.substring(0, 150) + '...'}
@@ -307,50 +426,55 @@ export const AdminBlogManagement = () => {
                             <span>Published: {new Date(post.publishedAt).toLocaleDateString()}</span>
                           </>
                         )}
+                        </div>
                       </div>
                     </div>
                     
                     <div className="flex items-center space-x-2 ml-4">
                       <button
                         onClick={() => handleEditPost(post)}
-                        className="text-gray-400 hover:text-primary-600 transition-colors"
-                        title="Edit"
+                        className="flex items-center px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors"
+                        title="Edit Post"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
+                        Edit
                       </button>
                       
                       {post.isPublished ? (
                         <button
                           onClick={() => handleUnpublishPost(post.id)}
-                          className="text-gray-400 hover:text-yellow-600 transition-colors"
-                          title="Unpublish"
+                          className="flex items-center px-3 py-1.5 text-sm font-medium text-yellow-700 bg-yellow-100 hover:bg-yellow-200 rounded-md transition-colors"
+                          title="Unpublish Post"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
                           </svg>
+                          Unpublish
                         </button>
                       ) : (
                         <button
                           onClick={() => handlePublishPost(post.id)}
-                          className="text-gray-400 hover:text-green-600 transition-colors"
-                          title="Publish"
+                          className="flex items-center px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors shadow-sm"
+                          title="Publish Post"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
+                          Publish
                         </button>
                       )}
                       
                       <button
                         onClick={() => handleDeletePost(post.id)}
-                        className="text-gray-400 hover:text-red-600 transition-colors"
-                        title="Delete"
+                        className="flex items-center px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                        title="Delete Post"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
+                        Delete
                       </button>
                     </div>
                   </div>

@@ -52,32 +52,45 @@ export const AdminDashboard = () => {
         fetch('http://localhost:8080/api/blog/admin/posts', { headers })
       ]);
 
+      let usersData = [];
+      let subscribersData = [];
+      let nonSubscribersData = [];
+      let blogPostsData = [];
+
       if (usersRes.ok) {
-        const usersData = await usersRes.json();
+        usersData = await usersRes.json();
         setUsers(usersData);
+      } else {
+        console.error('Failed to fetch users:', usersRes.status, usersRes.statusText);
       }
 
       if (subscribersRes.ok) {
-        const subscribersData = await subscribersRes.json();
+        subscribersData = await subscribersRes.json();
         setSubscribers(subscribersData);
+      } else {
+        console.error('Failed to fetch subscribers:', subscribersRes.status, subscribersRes.statusText);
       }
 
       if (nonSubscribersRes.ok) {
-        const nonSubscribersData = await nonSubscribersRes.json();
+        nonSubscribersData = await nonSubscribersRes.json();
         setNonSubscribers(nonSubscribersData);
+      } else {
+        console.error('Failed to fetch non-subscribers:', nonSubscribersRes.status, nonSubscribersRes.statusText);
       }
 
       if (blogPostsRes.ok) {
-        const blogPostsData = await blogPostsRes.json();
+        blogPostsData = await blogPostsRes.json();
         setBlogPosts(blogPostsData);
+      } else {
+        console.error('Failed to fetch blog posts:', blogPostsRes.status, blogPostsRes.statusText);
       }
 
-      // Calculate stats
+      // Calculate stats using the fetched data (not state which might be stale)
       setStats({
-        totalUsers: users.length,
-        activeSubscribers: subscribers.length,
-        totalPosts: blogPosts.length,
-        publishedPosts: blogPosts.filter(post => post.isPublished).length
+        totalUsers: usersData.length,
+        activeSubscribers: subscribersData.length,
+        totalPosts: blogPostsData.length,
+        publishedPosts: blogPostsData.filter(post => post.isPublished).length
       });
 
     } catch (error) {

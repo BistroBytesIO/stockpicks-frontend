@@ -27,7 +27,7 @@ export const SubscriptionPlans = () => {
 
   const handleSubscribe = async (planId) => {
     if (!isAuthenticated) {
-      navigate('/login');
+      navigate('/register');
       return;
     }
 

@@ -3,12 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export const Navbar = () => {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, hasActiveSubscription } = useAuth();
   const navigate = useNavigate();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  
-  // TODO: Replace with actual subscription status check
-  const hasActiveSubscription = false; // This will be implemented later
 
   const handleLogout = () => {
     logout();
