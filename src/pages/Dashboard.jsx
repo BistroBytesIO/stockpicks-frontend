@@ -15,15 +15,23 @@ export const Dashboard = () => {
   const [newsData, setNewsData] = useState({});
   const [newsLoading, setNewsLoading] = useState(true);
   const [activeNewsTab, setActiveNewsTab] = useState('topStories');
+  const [files, setFiles] = useState([]);
+  const [filesLoading, setFilesLoading] = useState(true);
 
   useEffect(() => {
     const fetchAllData = async () => {
       try {
         // Fetch all data in parallel to avoid duplicate calls
-        const [picksData, blogResponse, newsResponse] = await Promise.all([
+        const [picksData, blogResponse, newsResponse, filesResponse] = await Promise.all([
           stockPickApi.getStockPicks(),
           fetch('http://localhost:8080/api/blog/posts'),
-          fetch('http://localhost:8080/api/news/all-categories')
+          fetch('http://localhost:8080/api/news/all-categories'),
+          fetch('http://localhost:8080/api/files', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            }
+          })
         ]);
 
         // Handle stock picks
@@ -43,10 +51,18 @@ export const Dashboard = () => {
         }
         setNewsLoading(false);
 
+        // Handle files data
+        if (filesResponse.ok) {
+          const filesData = await filesResponse.json();
+          setFiles(filesData);
+        }
+        setFilesLoading(false);
+
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         setBlogLoading(false);
         setNewsLoading(false);
+        setFilesLoading(false);
       } finally {
         setLoading(false);
       }
@@ -81,6 +97,19 @@ export const Dashboard = () => {
     const change = pick.currentPrice - pick.entryPrice;
     const percentage = ((change / pick.entryPrice) * 100).toFixed(2);
     return { change: change.toFixed(2), percentage };
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleFileDownload = (fileId, filename) => {
+    const token = localStorage.getItem('token');
+    window.open(`http://localhost:8080/api/files/${fileId}/download?token=${token}`, '_blank');
   };
 
   if (loading) {
@@ -398,6 +427,61 @@ export const Dashboard = () => {
               <StockChartsGrid stockPicks={stockPicks} />
             </div>
           )}
+
+          {/* Downloads Section */}
+          <div className="mt-12">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-900">Downloads</h2>
+                <p className="text-gray-600 mt-1">Excel files and resources for subscribers</p>
+              </div>
+              
+              <div className="p-6">
+                {filesLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                  </div>
+                ) : files.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {files.map((file) => (
+                      <div key={file.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-start mb-3">
+                          <svg className="w-8 h-8 text-green-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-gray-900 mb-1 truncate">
+                              {file.originalFilename}
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                              {file.description}
+                            </p>
+                            <div className="flex justify-between items-center text-xs text-gray-500">
+                              <span>{formatFileSize(file.fileSize)}</span>
+                              <span>{new Date(file.uploadedAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleFileDownload(file.id, file.originalFilename)}
+                          className="w-full bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Download
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p className="text-gray-500 text-sm">No downloadable files available yet</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
