@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import MarketDashboard from '../components/MarketDashboard';
 
 export const Home = () => {
   const { user } = useAuth();
@@ -80,6 +81,17 @@ export const Home = () => {
             </p>
           </div>
         </div>
+      </section>
+
+      {/* Market Overview Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Live Market Overview</h2>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            Stay updated with real-time market data and the latest financial news
+          </p>
+        </div>
+        <MarketDashboard />
       </section>
 
       {/* Call to Action Section */}
