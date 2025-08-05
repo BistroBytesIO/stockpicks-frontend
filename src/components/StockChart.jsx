@@ -20,27 +20,50 @@ const StockChart = ({ stockPick }) => {
   const [period, setPeriod] = useState('1mo');
 
   useEffect(() => {
-    fetchChartData();
+    // Use placeholder data instead of fetching from API
+    generatePlaceholderData();
   }, [stockPick.symbol, period]);
 
-  const fetchChartData = async () => {
-    try {
-      setLoading(true);
-      const response = await stockPickApi.getChartData(stockPick.symbol, period);
+  const generatePlaceholderData = () => {
+    setLoading(true);
+    
+    // Generate realistic placeholder data
+    const daysBack = period === '1d' ? 1 : period === '5d' ? 5 : period === '1mo' ? 30 : period === '3mo' ? 90 : 365;
+    const basePrice = stockPick.entryPrice || 100;
+    const data = [];
+    
+    for (let i = daysBack; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
       
-      if (response && response.candles && response.candles.c) {
-        const processedData = processChartData(response);
-        setChartData(processedData);
-        setError(null);
-      } else {
-        setError('No chart data available');
-      }
-    } catch (err) {
-      console.error('Error fetching chart data:', err);
-      setError('Failed to load chart data');
-    } finally {
-      setLoading(false);
+      // Create realistic price movement
+      const trend = Math.sin(i * 0.1) * 0.05; // Long-term trend
+      const randomWalk = (Math.random() - 0.5) * 0.03; // Daily volatility
+      const priceMultiplier = 1 + trend + randomWalk;
+      
+      const open = basePrice * priceMultiplier * (0.98 + Math.random() * 0.04);
+      const close = open * (0.98 + Math.random() * 0.04);
+      const high = Math.max(open, close) * (1 + Math.random() * 0.02);
+      const low = Math.min(open, close) * (1 - Math.random() * 0.02);
+      const volume = Math.floor(Math.random() * 1000000) + 100000;
+      
+      data.push({
+        date: date.toLocaleDateString(),
+        timestamp: date.getTime() / 1000,
+        open: parseFloat(open.toFixed(2)),
+        high: parseFloat(high.toFixed(2)),
+        low: parseFloat(low.toFixed(2)),
+        close: parseFloat(close.toFixed(2)),
+        volume: volume,
+        candleColor: close >= open ? '#10B981' : '#EF4444'
+      });
     }
+    
+    setTimeout(() => {
+      setChartData(data);
+      setError(null);
+      setLoading(false);
+    }, 500); // Small delay to show loading state
   };
 
   const processChartData = (rawData) => {
@@ -133,22 +156,7 @@ const StockChart = ({ stockPick }) => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="text-center">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">{stockPick.symbol}</h3>
-          <p className="text-red-600">{error}</p>
-          <button 
-            onClick={fetchChartData}
-            className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Remove error state - always show placeholder data for now
 
   const performance = stockPick.currentPrice && stockPick.entryPrice 
     ? ((stockPick.currentPrice - stockPick.entryPrice) / stockPick.entryPrice * 100).toFixed(2)
@@ -161,6 +169,7 @@ const StockChart = ({ stockPick }) => {
         <div>
           <h3 className="text-lg font-semibold text-gray-900">{stockPick.symbol}</h3>
           <p className="text-sm text-gray-600">{stockPick.companyName}</p>
+          <p className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-1 inline-block">Sample Chart Data</p>
         </div>
         <div className="flex space-x-2">
           {[
