@@ -28,18 +28,22 @@ const MarketDashboard = () => {
 
   const formatTimeAgo = (pubDate) => {
     try {
+      // Yahoo Finance uses ISO 8601 format: 2025-08-05T08:03:35Z
       const date = new Date(pubDate);
       const now = new Date();
       const diffInMinutes = Math.floor((now - date) / (1000 * 60));
       
-      if (diffInMinutes < 60) {
+      if (diffInMinutes < 1) {
+        return 'now';
+      } else if (diffInMinutes < 60) {
         return `${diffInMinutes}m`;
       } else if (diffInMinutes < 1440) {
         return `${Math.floor(diffInMinutes / 60)}h`;
       } else {
         return `${Math.floor(diffInMinutes / 1440)}d`;
       }
-    } catch {
+    } catch (error) {
+      console.error('Error parsing date:', pubDate, error);
       return '1h';
     }
   };
