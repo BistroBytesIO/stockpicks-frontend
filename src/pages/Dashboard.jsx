@@ -1,36 +1,17 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { stockPickApi } from '../services/api';
 import StockChartsGrid from '../components/StockChartsGrid';
 
 export const Dashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [stockPicks, setStockPicks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [newsArticles] = useState([
-    {
-      id: 1,
-      title: "Market Analysis: Tech Stocks Show Strong Recovery",
-      summary: "Recent market data indicates a significant upturn in technology sector performance...",
-      date: new Date().toISOString(),
-      category: "Market Analysis"
-    },
-    {
-      id: 2,
-      title: "Weekly Stock Pick Performance Update",
-      summary: "Our latest stock recommendations have shown impressive performance over the past week...",
-      date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      category: "Performance"
-    },
-    {
-      id: 3,
-      title: "Sector Rotation: Opportunities in Energy Stocks",
-      summary: "With changing market dynamics, energy sector presents new investment opportunities...",
-      date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      category: "Sector Analysis"
-    }
-  ]);
+  const [blogPosts, setBlogPosts] = useState([]);
+  const [blogLoading, setBlogLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -44,7 +25,22 @@ export const Dashboard = () => {
       }
     };
 
+    const fetchBlogPosts = async () => {
+      try {
+        const response = await fetch('http://localhost:8080/api/blog/posts');
+        if (response.ok) {
+          const posts = await response.json();
+          setBlogPosts(posts.slice(0, 3)); // Show only the latest 3 posts
+        }
+      } catch (error) {
+        console.error('Error fetching blog posts:', error);
+      } finally {
+        setBlogLoading(false);
+      }
+    };
+
     fetchData();
+    fetchBlogPosts();
   }, []);
 
   const handleSync = async () => {
@@ -256,27 +252,43 @@ export const Dashboard = () => {
                   <h2 className="text-2xl font-bold text-gray-900">Market News & Analysis</h2>
                 </div>
                 <div className="p-6 space-y-6">
-                  {newsArticles.map((article) => (
-                    <div key={article.id} className="border-l-4 border-primary-500 pl-4 hover:bg-gray-50 p-3 rounded-r-lg transition-colors cursor-pointer">
-                      <div className="flex items-center mb-2">
-                        <span className="bg-primary-100 text-primary-700 px-2 py-1 rounded-full text-xs font-semibold">
-                          {article.category}
-                        </span>
-                        <span className="text-xs text-gray-500 ml-2">
-                          {new Date(article.date).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <h3 className="font-bold text-gray-900 mb-2 text-sm leading-tight">
-                        {article.title}
-                      </h3>
-                      <p className="text-gray-600 text-sm line-clamp-2">
-                        {article.summary}
-                      </p>
-                      <button className="text-primary-600 hover:text-primary-700 font-medium text-sm mt-2 transition-colors">
-                        Read more →
-                      </button>
+                  {blogLoading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
                     </div>
-                  ))}
+                  ) : blogPosts.length > 0 ? (
+                    blogPosts.map((post) => (
+                      <div key={post.id} className="border-l-4 border-primary-500 pl-4 hover:bg-gray-50 p-3 rounded-r-lg transition-colors cursor-pointer">
+                        <div className="flex items-center mb-2">
+                          <span className="bg-primary-100 text-primary-700 px-2 py-1 rounded-full text-xs font-semibold">
+                            {post.category}
+                          </span>
+                          <span className="text-xs text-gray-500 ml-2">
+                            {new Date(post.publishedAt || post.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <h3 className="font-bold text-gray-900 mb-2 text-sm leading-tight">
+                          {post.title}
+                        </h3>
+                        <p className="text-gray-600 text-sm line-clamp-2">
+                          {post.summary || post.content?.substring(0, 150) + '...'}
+                        </p>
+                        <button 
+                          onClick={() => navigate(`/blog/${post.id}`)}
+                          className="text-primary-600 hover:text-primary-700 font-medium text-sm mt-2 transition-colors"
+                        >
+                          Read more →
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="text-gray-500 text-sm">No blog posts available yet</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

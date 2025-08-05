@@ -15,6 +15,7 @@ import { Contact } from './pages/Contact';
 import { AdminLogin } from './pages/AdminLogin';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminBlogManagement } from './pages/AdminBlogManagement';
+import { BlogPost } from './pages/BlogPost';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 const queryClient = new QueryClient();
@@ -56,6 +57,7 @@ const AppContent = () => {
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/blog" element={<AdminBlogManagement />} />
+          <Route path="/blog/:id" element={<BlogPost />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
