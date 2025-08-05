@@ -69,10 +69,10 @@ export const AuthProvider = ({ children }) => {
 
   // Fetch subscription when user logs in
   useEffect(() => {
-    if (user && token) {
+    if (user && token && !loading) {
       fetchSubscription();
     }
-  }, [user, token]);
+  }, [user, token, loading]);
 
   const login = async (email, password) => {
     try {
@@ -121,6 +121,15 @@ export const AuthProvider = ({ children }) => {
     hasActiveSubscription: subscription?.status === 'ACTIVE',
     loading,
   };
+
+  // Debug logging
+  console.log('AuthContext state:', {
+    user: !!user,
+    token: !!token,
+    subscription,
+    hasActiveSubscription: subscription?.status === 'ACTIVE',
+    loading
+  });
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

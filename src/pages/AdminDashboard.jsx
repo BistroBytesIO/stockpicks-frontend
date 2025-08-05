@@ -16,6 +16,7 @@ export const AdminDashboard = () => {
   const [nonSubscribers, setNonSubscribers] = useState([]);
   const [blogPosts, setBlogPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     // Check if admin is logged in
@@ -35,6 +36,18 @@ export const AdminDashboard = () => {
       navigate('/admin/login');
     }
   }, [navigate]);
+
+  // Auto refresh when page gets focus (when navigating back from other admin pages)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (!loading && adminUser) {
+        fetchDashboardData();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [loading, adminUser]);
 
   const fetchDashboardData = async () => {
     try {
@@ -80,6 +93,14 @@ export const AdminDashboard = () => {
 
       if (blogPostsRes.ok) {
         blogPostsData = await blogPostsRes.json();
+        console.log('AdminDashboard - Blog posts fetched:', blogPostsData);
+        // Log the first post to see the structure
+        if (blogPostsData.length > 0) {
+          console.log('AdminDashboard - First post structure:', blogPostsData[0]);
+          console.log('AdminDashboard - First post isPublished:', blogPostsData[0].isPublished);
+          console.log('AdminDashboard - First post publishedAt:', blogPostsData[0].publishedAt);
+          console.log('AdminDashboard - isPostPublished result:', isPostPublished(blogPostsData[0]));
+        }
         setBlogPosts(blogPostsData);
       } else {
         console.error('Failed to fetch blog posts:', blogPostsRes.status, blogPostsRes.statusText);
@@ -90,7 +111,7 @@ export const AdminDashboard = () => {
         totalUsers: usersData.length,
         activeSubscribers: subscribersData.length,
         totalPosts: blogPostsData.length,
-        publishedPosts: blogPostsData.filter(post => post.isPublished).length
+        publishedPosts: blogPostsData.filter(post => isPostPublished(post)).length
       });
 
     } catch (error) {
@@ -104,6 +125,18 @@ export const AdminDashboard = () => {
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminUser');
     navigate('/admin/login');
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchDashboardData();
+    setRefreshing(false);
+  };
+
+  // Helper function to check if a post is published - handles any field name inconsistencies
+  const isPostPublished = (post) => {
+    // Check both possible field names to handle any backend inconsistencies
+    return post.isPublished === true || post.published === true || !!post.publishedAt;
   };
 
   if (loading) {
@@ -132,6 +165,25 @@ export const AdminDashboard = () => {
               <span className="text-gray-700">
                 Welcome, {adminUser?.firstName} {adminUser?.lastName}
               </span>
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center"
+              >
+                {refreshing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                  </>
+                )}
+              </button>
               <button
                 onClick={handleLogout}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors duration-200"
@@ -329,11 +381,11 @@ export const AdminDashboard = () => {
                         {post.title}
                       </h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ml-2 ${
-                        post.isPublished
+                        isPostPublished(post)
                           ? 'bg-green-100 text-green-800'
                           : 'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {post.isPublished ? 'Published' : 'Draft'}
+                        {isPostPublished(post) ? 'Published' : 'Draft'}
                       </span>
                     </div>
                     <p className="text-gray-600 text-sm mb-2 line-clamp-2">

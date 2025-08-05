@@ -35,6 +35,13 @@ export const AdminBlogManagement = () => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Blog posts fetched:', data);
+        // Log the first post to see the structure
+        if (data.length > 0) {
+          console.log('First post structure:', data[0]);
+          console.log('First post isPublished:', data[0].isPublished);
+          console.log('First post publishedAt:', data[0].publishedAt);
+        }
         setPosts(data);
       } else {
         console.error('Failed to fetch posts');
@@ -159,6 +166,12 @@ export const AdminBlogManagement = () => {
   const handleCancelEdit = () => {
     setShowEditor(false);
     setEditingPost(null);
+  };
+
+  // Helper function to check if a post is published - handles any field name inconsistencies
+  const isPostPublished = (post) => {
+    // Check both possible field names to handle any backend inconsistencies
+    return post.isPublished === true || post.published === true || !!post.publishedAt;
   };
 
   const togglePostSelection = (postId) => {
@@ -296,7 +309,7 @@ export const AdminBlogManagement = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Published</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {posts.filter(p => p.isPublished).length}
+                  {posts.filter(p => isPostPublished(p)).length}
                 </p>
               </div>
             </div>
@@ -312,7 +325,7 @@ export const AdminBlogManagement = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Drafts</p>
                 <p className="text-2xl font-bold text-yellow-600">
-                  {posts.filter(p => !p.isPublished).length}
+                  {posts.filter(p => !isPostPublished(p)).length}
                 </p>
               </div>
             </div>
@@ -402,11 +415,11 @@ export const AdminBlogManagement = () => {
                             {post.title}
                           </h3>
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            post.isPublished
+                            isPostPublished(post)
                               ? 'bg-green-100 text-green-800'
                               : 'bg-yellow-100 text-yellow-800'
                           }`}>
-                            {post.isPublished ? 'Published' : 'Draft'}
+                            {isPostPublished(post) ? 'Published' : 'Draft'}
                           </span>
                         </div>
                       
@@ -442,7 +455,7 @@ export const AdminBlogManagement = () => {
                         Edit
                       </button>
                       
-                      {post.isPublished ? (
+                      {isPostPublished(post) ? (
                         <button
                           onClick={() => handleUnpublishPost(post.id)}
                           className="flex items-center px-3 py-1.5 text-sm font-medium text-yellow-700 bg-yellow-100 hover:bg-yellow-200 rounded-md transition-colors"
