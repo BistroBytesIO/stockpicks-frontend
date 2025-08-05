@@ -35,7 +35,7 @@ export const Home = () => {
             to="/register"
             className="border border-primary-600 text-primary-600 hover:bg-primary-50 px-8 py-4 rounded-lg text-lg font-semibold transition-colors"
           >
-            Start Free Trial
+            Sign Up Today
           </Link>
         </div>
       </section>
@@ -96,7 +96,7 @@ export const Home = () => {
               to="/register"
               className="bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 rounded-lg text-lg font-semibold transition-colors"
             >
-              Start Free Trial
+              Get Started
             </Link>
             <Link
               to="/plans"

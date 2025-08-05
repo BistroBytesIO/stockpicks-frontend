@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { contactApi } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 export const Contact = () => {
+  const { isAuthenticated, user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -26,11 +28,19 @@ export const Contact = () => {
     setSuccess(false);
 
     try {
-      await contactApi.submitContactForm(formData);
+      // Use logged-in user's data if available, otherwise use form data
+      const submitData = isAuthenticated ? {
+        name: user?.firstName || formData.name,
+        email: user?.email || formData.email,
+        subject: formData.subject,
+        message: formData.message,
+      } : formData;
+
+      await contactApi.submitContactForm(submitData);
       setSuccess(true);
       setFormData({
-        name: '',
-        email: '',
+        name: isAuthenticated ? user?.firstName || '' : '',
+        email: isAuthenticated ? user?.email || '' : '',
         subject: '',
         message: '',
       });
@@ -110,37 +120,49 @@ export const Contact = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="Your name"
-              />
-            </div>
+            {!isAuthenticated && (
+              <>
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="Your name"
+                  />
+                </div>
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="your@email.com"
-              />
-            </div>
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="your@email.com"
+                  />
+                </div>
+              </>
+            )}
+
+            {isAuthenticated && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
+                <p className="text-sm text-blue-700">
+                  <strong>Sending as:</strong> {user?.firstName} ({user?.email})
+                </p>
+              </div>
+            )}
 
             <div>
               <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
