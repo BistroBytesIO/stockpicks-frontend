@@ -52,10 +52,6 @@ export const SubscriptionSuccess = () => {
         >
           Go to Dashboard
         </button>
-        
-        <p className="text-sm text-gray-500">
-          Session ID: {sessionId}
-        </p>
       </div>
     </div>
   );

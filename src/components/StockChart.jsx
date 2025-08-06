@@ -169,7 +169,6 @@ const StockChart = ({ stockPick }) => {
         <div>
           <h3 className="text-lg font-semibold text-gray-900">{stockPick.symbol}</h3>
           <p className="text-sm text-gray-600">{stockPick.companyName}</p>
-          <p className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-1 inline-block">Sample Chart Data</p>
         </div>
         <div className="flex space-x-2">
           {[
