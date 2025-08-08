@@ -66,11 +66,23 @@ export const subscriptionApi = {
   
   getCurrentSubscription: async () => {
     try {
+      console.log('🔍 Fetching current subscription...');
       const response = await api.get('/subscriptions/current');
-      console.log('Current subscription response:', response.data);
+      console.log('📡 Current subscription API response:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: response.data,
+        dataType: typeof response.data,
+        dataLength: response.data?.length,
+        isEmpty: !response.data || response.data === '' || response.data === null
+      });
       return response.data;
     } catch (error) {
-      console.error('Error fetching current subscription:', error);
+      console.error('❌ Error fetching current subscription:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       throw error;
     }
   },
@@ -80,8 +92,23 @@ export const subscriptionApi = {
   },
   
   hasActiveSubscription: async () => {
-    const response = await api.get('/subscriptions/status');
-    return response.data;
+    try {
+      console.log('🔍 Checking subscription status...');
+      const response = await api.get('/subscriptions/status');
+      console.log('📡 Subscription status API response:', {
+        status: response.status,
+        data: response.data,
+        dataType: typeof response.data
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error checking subscription status:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      throw error;
+    }
   },
 };
 
