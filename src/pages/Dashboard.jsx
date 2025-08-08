@@ -128,15 +128,12 @@ export const Dashboard = () => {
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        
-        // Clean up
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert('Failed to download file');
-      }
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
       console.error('Error downloading file:', error);
       alert('Error downloading file');
