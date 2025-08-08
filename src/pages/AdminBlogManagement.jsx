@@ -98,9 +98,6 @@ export const AdminBlogManagement = () => {
       await blogApi.admin.deletePost(postId);
       await fetchPosts();
     } catch (error) {
-        console.error('Failed to delete post');
-      }
-    } catch (error) {
       console.error('Error deleting post:', error);
     }
   };
