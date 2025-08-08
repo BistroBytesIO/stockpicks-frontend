@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BlogPostEditor from '../components/BlogPostEditor';
+import { blogApi } from '../services/api';
 
 export const AdminBlogManagement = () => {
   const navigate = useNavigate();
@@ -25,27 +26,15 @@ export const AdminBlogManagement = () => {
 
   const fetchPosts = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:8080/api/blog/admin/posts', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Blog posts fetched:', data);
-        // Log the first post to see the structure
-        if (data.length > 0) {
-          console.log('First post structure:', data[0]);
-          console.log('First post isPublished:', data[0].isPublished);
-          console.log('First post publishedAt:', data[0].publishedAt);
-        }
-        setPosts(data);
-      } else {
-        console.error('Failed to fetch posts');
+      const data = await blogApi.admin.getPosts();
+      console.log('Blog posts fetched:', data);
+      // Log the first post to see the structure
+      if (data.length > 0) {
+        console.log('First post structure:', data[0]);
+        console.log('First post isPublished:', data[0].isPublished);
+        console.log('First post publishedAt:', data[0].publishedAt);
       }
+      setPosts(data);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
@@ -66,29 +55,15 @@ export const AdminBlogManagement = () => {
   const handleSavePost = async (postData) => {
     setOperationLoading(true);
     try {
-      const token = localStorage.getItem('adminToken');
-      const url = editingPost 
-        ? `http://localhost:8080/api/blog/admin/posts/${editingPost.id}`
-        : 'http://localhost:8080/api/blog/admin/posts';
-      
-      const method = editingPost ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(postData)
-      });
-
-      if (response.ok) {
-        await fetchPosts(); // Refresh the posts list
-        setShowEditor(false);
-        setEditingPost(null);
+      if (editingPost) {
+        await blogApi.admin.updatePost(editingPost.id, postData);
       } else {
-        console.error('Failed to save post');
+        await blogApi.admin.createPost(postData);
       }
+      
+      await fetchPosts(); // Refresh the posts list
+      setShowEditor(false);
+      setEditingPost(null);
     } catch (error) {
       console.error('Error saving post:', error);
     } finally {
@@ -98,20 +73,8 @@ export const AdminBlogManagement = () => {
 
   const handlePublishPost = async (postId) => {
     try {
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:8080/api/blog/admin/posts/${postId}/publish`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        await fetchPosts();
-      } else {
-        console.error('Failed to publish post');
-      }
+      await blogApi.admin.publishPost(postId);
+      await fetchPosts();
     } catch (error) {
       console.error('Error publishing post:', error);
     }
@@ -119,20 +82,8 @@ export const AdminBlogManagement = () => {
 
   const handleUnpublishPost = async (postId) => {
     try {
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:8080/api/blog/admin/posts/${postId}/unpublish`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        await fetchPosts();
-      } else {
-        console.error('Failed to unpublish post');
-      }
+      await blogApi.admin.unpublishPost(postId);
+      await fetchPosts();
     } catch (error) {
       console.error('Error unpublishing post:', error);
     }
@@ -144,18 +95,9 @@ export const AdminBlogManagement = () => {
     }
 
     try {
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:8080/api/blog/admin/posts/${postId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        await fetchPosts();
-      } else {
+      await blogApi.admin.deletePost(postId);
+      await fetchPosts();
+    } catch (error) {
         console.error('Failed to delete post');
       }
     } catch (error) {
@@ -189,42 +131,21 @@ export const AdminBlogManagement = () => {
   const handleBulkAction = async () => {
     if (!bulkAction || selectedPosts.length === 0) return;
 
-    const token = localStorage.getItem('adminToken');
-    const headers = {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    };
-
     try {
       setOperationLoading(true);
       
       if (bulkAction === 'publish') {
         await Promise.all(
-          selectedPosts.map(postId => 
-            fetch(`http://localhost:8080/api/blog/admin/posts/${postId}/publish`, {
-              method: 'POST',
-              headers
-            })
-          )
+          selectedPosts.map(postId => blogApi.admin.publishPost(postId))
         );
       } else if (bulkAction === 'unpublish') {
         await Promise.all(
-          selectedPosts.map(postId => 
-            fetch(`http://localhost:8080/api/blog/admin/posts/${postId}/unpublish`, {
-              method: 'POST',  
-              headers
-            })
-          )
+          selectedPosts.map(postId => blogApi.admin.unpublishPost(postId))
         );
       } else if (bulkAction === 'delete') {
         if (window.confirm(`Are you sure you want to delete ${selectedPosts.length} posts? This action cannot be undone.`)) {
           await Promise.all(
-            selectedPosts.map(postId => 
-              fetch(`http://localhost:8080/api/blog/admin/posts/${postId}`, {
-                method: 'DELETE',
-                headers
-              })
-            )
+            selectedPosts.map(postId => blogApi.admin.deletePost(postId))
           );
         }
       }

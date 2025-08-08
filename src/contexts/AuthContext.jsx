@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authApi } from '../services/api';
+import { authApi, subscriptionApi } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -46,15 +46,8 @@ export const AuthProvider = ({ children }) => {
     
     try {
       // First try to get current subscription details
-      const response = await fetch('http://localhost:8080/api/subscriptions/current', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const subscriptionData = await response.json();
+      try {
+        const subscriptionData = await subscriptionApi.getCurrentSubscription();
         // Check if response is null or a string indicating no subscription
         if (!subscriptionData || (typeof subscriptionData === 'string' && subscriptionData.includes('No active subscription'))) {
           setSubscription(null);
@@ -63,17 +56,10 @@ export const AuthProvider = ({ children }) => {
           setSubscription(subscriptionData);
           localStorage.setItem('subscription', JSON.stringify(subscriptionData));
         }
-      } else {
+      } catch (error) {
         // Fallback: check subscription status
-        const statusResponse = await fetch('http://localhost:8080/api/subscriptions/status', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (statusResponse.ok) {
-          const hasActive = await statusResponse.json();
+        try {
+          const hasActive = await subscriptionApi.hasActiveSubscription();
           if (hasActive) {
             // User has active subscription but details failed to load
             setSubscription({ status: 'ACTIVE' });
@@ -82,7 +68,7 @@ export const AuthProvider = ({ children }) => {
             setSubscription(null);
             localStorage.removeItem('subscription');
           }
-        } else {
+        } catch (statusError) {
           setSubscription(null);
           localStorage.removeItem('subscription');
         }

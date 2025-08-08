@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { blogApi } from '../services/api';
 
 export const BlogPost = () => {
   const { id } = useParams();
@@ -11,18 +12,15 @@ export const BlogPost = () => {
   useEffect(() => {
     const fetchPost = async () => {
       try {
-        const response = await fetch(`http://localhost:8080/api/blog/posts/${id}`);
-        if (response.ok) {
-          const postData = await response.json();
-          setPost(postData);
-        } else if (response.status === 404) {
+        const postData = await blogApi.getPost(id);
+        setPost(postData);
+      } catch (error) {
+        console.error('Error fetching blog post:', error);
+        if (error.response?.status === 404) {
           setError('Blog post not found');
         } else {
           setError('Failed to load blog post');
         }
-      } catch (error) {
-        console.error('Error fetching blog post:', error);
-        setError('Failed to load blog post');
       } finally {
         setLoading(false);
       }

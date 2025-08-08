@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { stockPickApi } from '../services/api';
+import { stockPickApi, blogApi, fileApi } from '../services/api';
 import StockChartsGrid from '../components/StockChartsGrid';
 import MarketDashboard from '../components/MarketDashboard';
 
@@ -21,29 +21,31 @@ export const Dashboard = () => {
       try {
         // Only fetch protected resources if user has active subscription
         const promises = [
-          fetch('http://localhost:8080/api/blog/posts')
+          blogApi.getPosts()
         ];
         
         if (hasActiveSubscription) {
           promises.push(
             stockPickApi.getStockPicks(),
-            fetch('http://localhost:8080/api/files', {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
-              }
-            })
+            fileApi.getFiles()
           );
         }
         
-        const responses = await Promise.all(promises);
+        const responses = await Promise.allSettled(promises);
         const blogResponse = responses[0];
         let picksData = [];
-        let filesResponse = null;
+        let filesData = [];
         
-        if (hasActiveSubscription) {
-          picksData = responses[1];
-          filesResponse = responses[2];
+        if (hasActiveSubscription && responses.length > 1) {
+          const stockResponse = responses[1];
+          const filesResponse = responses[2];
+          
+          if (stockResponse.status === 'fulfilled') {
+            picksData = stockResponse.value;
+          }
+          if (filesResponse.status === 'fulfilled') {
+            filesData = filesResponse.value;
+          }
         }
 
         // Handle stock picks (only if subscription active)
@@ -52,19 +54,15 @@ export const Dashboard = () => {
         }
 
         // Handle blog posts
-        if (blogResponse.ok) {
-          const posts = await blogResponse.json();
+        if (blogResponse.status === 'fulfilled') {
+          const posts = blogResponse.value;
           setBlogPosts(posts.slice(0, 3)); // Show only the latest 3 posts
         }
         setBlogLoading(false);
 
-
         // Handle files data (only if subscription active)
-        if (hasActiveSubscription && filesResponse) {
-          if (filesResponse.ok) {
-            const filesData = await filesResponse.json();
-            setFiles(filesData);
-          }
+        if (hasActiveSubscription) {
+          setFiles(filesData);
         }
         setFilesLoading(false);
 
@@ -120,25 +118,16 @@ export const Dashboard = () => {
 
   const handleFileDownload = async (fileId, filename) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8080/api/files/${fileId}/download`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      });
-
-      if (response.ok) {
-        // Get the file blob
-        const blob = await response.blob();
-        
-        // Create a temporary URL for the blob
-        const url = window.URL.createObjectURL(blob);
-        
-        // Create a temporary anchor element to trigger download
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
+      // Get the file blob
+      const blob = await fileApi.downloadFile(fileId);
+      
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary anchor element to trigger download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
         document.body.appendChild(a);
         a.click();
         

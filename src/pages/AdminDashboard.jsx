@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { adminApi, blogApi } from '../services/api';
 
 export const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -53,78 +54,76 @@ export const AdminDashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      };
-
-      // Fetch all data in parallel
-      const [usersRes, subscribersRes, nonSubscribersRes, blogPostsRes, filesRes] = await Promise.all([
-        fetch('http://localhost:8080/api/admin/users', { headers }),
-        fetch('http://localhost:8080/api/admin/users/subscribers', { headers }),
-        fetch('http://localhost:8080/api/admin/users/non-subscribers', { headers }),
-        fetch('http://localhost:8080/api/blog/admin/posts', { headers }),
-        fetch('http://localhost:8080/api/admin/files', { headers })
-      ]);
-
       let usersData = [];
       let subscribersData = [];
       let nonSubscribersData = [];
       let blogPostsData = [];
       let filesData = [];
 
-      if (usersRes.ok) {
-        usersData = await usersRes.json();
-        setUsers(usersData);
-      } else {
-        console.error('Failed to fetch users:', usersRes.status, usersRes.statusText);
-      }
+      // Fetch all data in parallel
+      try {
+        const results = await Promise.allSettled([
+          adminApi.getUsers(),
+          adminApi.getSubscribers(),
+          adminApi.getNonSubscribers(),
+          blogApi.admin.getPosts(),
+          adminApi.getFiles()
+        ]);
 
-      if (subscribersRes.ok) {
-        subscribersData = await subscribersRes.json();
-        setSubscribers(subscribersData);
-      } else {
-        console.error('Failed to fetch subscribers:', subscribersRes.status, subscribersRes.statusText);
-      }
-
-      if (nonSubscribersRes.ok) {
-        nonSubscribersData = await nonSubscribersRes.json();
-        setNonSubscribers(nonSubscribersData);
-      } else {
-        console.error('Failed to fetch non-subscribers:', nonSubscribersRes.status, nonSubscribersRes.statusText);
-      }
-
-      if (blogPostsRes.ok) {
-        blogPostsData = await blogPostsRes.json();
-        console.log('AdminDashboard - Blog posts fetched:', blogPostsData);
-        // Log the first post to see the structure
-        if (blogPostsData.length > 0) {
-          console.log('AdminDashboard - First post structure:', blogPostsData[0]);
-          console.log('AdminDashboard - First post isPublished:', blogPostsData[0].isPublished);
-          console.log('AdminDashboard - First post publishedAt:', blogPostsData[0].publishedAt);
-          console.log('AdminDashboard - isPostPublished result:', isPostPublished(blogPostsData[0]));
+        if (results[0].status === 'fulfilled') {
+          usersData = results[0].value;
+          setUsers(usersData);
+        } else {
+          console.error('Failed to fetch users:', results[0].reason);
         }
-        setBlogPosts(blogPostsData);
-      } else {
-        console.error('Failed to fetch blog posts:', blogPostsRes.status, blogPostsRes.statusText);
+
+        if (results[1].status === 'fulfilled') {
+          subscribersData = results[1].value;
+          setSubscribers(subscribersData);
+        } else {
+          console.error('Failed to fetch subscribers:', results[1].reason);
+        }
+
+        if (results[2].status === 'fulfilled') {
+          nonSubscribersData = results[2].value;
+          setNonSubscribers(nonSubscribersData);
+        } else {
+          console.error('Failed to fetch non-subscribers:', results[2].reason);
+        }
+
+        if (results[3].status === 'fulfilled') {
+          blogPostsData = results[3].value;
+          console.log('AdminDashboard - Blog posts fetched:', blogPostsData);
+          // Log the first post to see the structure
+          if (blogPostsData.length > 0) {
+            console.log('AdminDashboard - First post structure:', blogPostsData[0]);
+            console.log('AdminDashboard - First post isPublished:', blogPostsData[0].isPublished);
+            console.log('AdminDashboard - First post publishedAt:', blogPostsData[0].publishedAt);
+            console.log('AdminDashboard - isPostPublished result:', isPostPublished(blogPostsData[0]));
+          }
+          setBlogPosts(blogPostsData);
+        } else {
+          console.error('Failed to fetch blog posts:', results[3].reason);
+        }
+
+        if (results[4].status === 'fulfilled') {
+          filesData = results[4].value;
+          setFiles(filesData);
+        } else {
+          console.error('Failed to fetch files:', results[4].reason);
+        }
+
+        // Calculate stats using the fetched data (not state which might be stale)
+        setStats({
+          totalUsers: usersData.length,
+          activeSubscribers: subscribersData.length,
+          totalPosts: blogPostsData.length,
+          publishedPosts: blogPostsData.filter(post => isPostPublished(post)).length
+        });
+
+      } catch (error) {
+        console.error('Error in Promise.allSettled:', error);
       }
-
-      if (filesRes.ok) {
-        filesData = await filesRes.json();
-        setFiles(filesData);
-      } else {
-        console.error('Failed to fetch files:', filesRes.status, filesRes.statusText);
-      }
-
-      // Calculate stats using the fetched data (not state which might be stale)
-      setStats({
-        totalUsers: usersData.length,
-        activeSubscribers: subscribersData.length,
-        totalPosts: blogPostsData.length,
-        publishedPosts: blogPostsData.filter(post => isPostPublished(post)).length
-      });
-
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -175,23 +174,9 @@ export const AdminDashboard = () => {
       formData.append('file', file);
       formData.append('description', description);
 
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:8080/api/admin/files/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (response.ok) {
-        const newFile = await response.json();
-        setFiles([newFile, ...files]);
-        alert('File uploaded successfully!');
-      } else {
-        const error = await response.text();
-        alert('Upload failed: ' + error);
-      }
+      const newFile = await adminApi.uploadFile(formData);
+      setFiles([newFile, ...files]);
+      alert('File uploaded successfully!');
     } catch (error) {
       console.error('Upload error:', error);
       alert('Upload failed: ' + error.message);
@@ -203,34 +188,22 @@ export const AdminDashboard = () => {
 
   const handleFileDownload = async (fileId, filename) => {
     try {
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:8080/api/admin/files/${fileId}/download`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      });
-
-      if (response.ok) {
-        // Get the file blob
-        const blob = await response.blob();
-        
-        // Create a temporary URL for the blob
-        const url = window.URL.createObjectURL(blob);
-        
-        // Create a temporary anchor element to trigger download
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        
-        // Clean up
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert('Failed to download file');
-      }
+      // Get the file blob
+      const blob = await adminApi.downloadFile(fileId);
+      
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary anchor element to trigger download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
       console.error('Error downloading file:', error);
       alert('Error downloading file');
@@ -241,21 +214,9 @@ export const AdminDashboard = () => {
     if (!confirm('Are you sure you want to delete this file?')) return;
 
     try {
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:8080/api/admin/files/${fileId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        setFiles(files.filter(file => file.id !== fileId));
-        alert('File deleted successfully!');
-      } else {
-        alert('Failed to delete file');
-      }
+      await adminApi.deleteFile(fileId);
+      setFiles(files.filter(file => file.id !== fileId));
+      alert('File deleted successfully!');
     } catch (error) {
       console.error('Delete error:', error);
       alert('Failed to delete file');

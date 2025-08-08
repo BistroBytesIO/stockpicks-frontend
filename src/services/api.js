@@ -124,4 +124,108 @@ export const contactApi = {
   },
 };
 
+export const adminApi = {
+  login: async (data) => {
+    const response = await api.post('/admin/login', data);
+    return response.data;
+  },
+
+  getUsers: async () => {
+    const response = await api.get('/admin/users');
+    return response.data;
+  },
+
+  getSubscribers: async () => {
+    const response = await api.get('/admin/users/subscribers');
+    return response.data;
+  },
+
+  getNonSubscribers: async () => {
+    const response = await api.get('/admin/users/non-subscribers');
+    return response.data;
+  },
+
+  getFiles: async () => {
+    const response = await api.get('/admin/files');
+    return response.data;
+  },
+
+  uploadFile: async (formData) => {
+    const response = await api.post('/admin/files/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  downloadFile: async (fileId) => {
+    const response = await api.get(`/admin/files/${fileId}/download`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  deleteFile: async (fileId) => {
+    await api.delete(`/admin/files/${fileId}`);
+  },
+};
+
+export const blogApi = {
+  getPosts: async () => {
+    const response = await api.get('/blog/posts');
+    return response.data;
+  },
+
+  getPost: async (id) => {
+    const response = await api.get(`/blog/posts/${id}`);
+    return response.data;
+  },
+
+  admin: {
+    getPosts: async () => {
+      const response = await api.get('/blog/admin/posts');
+      return response.data;
+    },
+
+    createPost: async (data) => {
+      const response = await api.post('/blog/admin/posts', data);
+      return response.data;
+    },
+
+    updatePost: async (id, data) => {
+      const response = await api.put(`/blog/admin/posts/${id}`, data);
+      return response.data;
+    },
+
+    deletePost: async (id) => {
+      await api.delete(`/blog/admin/posts/${id}`);
+    },
+
+    publishPost: async (id) => {
+      const response = await api.post(`/blog/admin/posts/${id}/publish`);
+      return response.data;
+    },
+
+    unpublishPost: async (id) => {
+      const response = await api.post(`/blog/admin/posts/${id}/unpublish`);
+      return response.data;
+    },
+  },
+};
+
+export const fileApi = {
+  getFiles: async () => {
+    const response = await api.get('/files');
+    return response.data;
+  },
+
+  downloadFile: async (fileId) => {
+    const response = await api.get(`/files/${fileId}/download`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+};
+
 export default api;

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { adminApi } from '../services/api';
 
 export const AdminLogin = () => {
   const [formData, setFormData] = useState({
@@ -23,35 +24,22 @@ export const AdminLogin = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8080/api/admin/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
+      const data = await adminApi.login(formData);
+      
+      // Store admin token and info
+      localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('adminUser', JSON.stringify({
+        id: data.id,
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: data.role
+      }));
 
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Store admin token and info
-        localStorage.setItem('adminToken', data.token);
-        localStorage.setItem('adminUser', JSON.stringify({
-          id: data.id,
-          email: data.email,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          role: data.role
-        }));
-
-        navigate('/admin/dashboard');
-      } else {
-        const errorData = await response.text();
-        setError(errorData || 'Login failed');
-      }
+      navigate('/admin/dashboard');
     } catch (error) {
       console.error('Admin login error:', error);
-      setError('Network error. Please try again.');
+      setError(error.response?.data || error.message || 'Login failed');
     } finally {
       setLoading(false);
     }
