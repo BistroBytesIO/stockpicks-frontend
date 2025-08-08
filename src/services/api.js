@@ -10,12 +10,17 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  // Check for regular user token first
-  let token = localStorage.getItem('token');
+  let token = null;
   
-  // If no user token, check for admin token
-  if (!token) {
-    token = localStorage.getItem('adminToken');
+  // Determine if this is an admin request by checking the URL
+  const isAdminRequest = config.url.includes('/admin/') || config.url.includes('/blog/admin/');
+  
+  if (isAdminRequest) {
+    // For admin requests, prioritize admin token
+    token = localStorage.getItem('adminToken') || localStorage.getItem('token');
+  } else {
+    // For regular requests, prioritize user token
+    token = localStorage.getItem('token') || localStorage.getItem('adminToken');
   }
   
   if (token) {
